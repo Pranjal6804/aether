@@ -62,7 +62,18 @@ def stop_agent(db: Session = Depends(get_db)):
         agent.status = "paused"
         db.commit()
 
-    return {"status": "stopped", "message": "Background publish scheduler paused."}
+    return {"status": "paused", "message": "Background publish scheduler paused."}
+
+
+@router.get("/status")
+def get_status(db: Session = Depends(get_db)):
+    """Return the current agent status (active/paused/not_initialized).
+    Used by the frontend to correctly reflect state across page navigation.
+    """
+    agent = db.query(Agent).order_by(Agent.created_at.desc()).first()
+    if agent is None:
+        return {"status": "not_initialized", "agentId": None}
+    return {"status": agent.status, "agentId": agent.id}
 
 
 @router.get("/feed", response_model=FeedResponse)

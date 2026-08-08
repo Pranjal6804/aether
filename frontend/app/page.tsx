@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getFeed, initAgent, stopAgent, type AgentInitResponse } from "./lib/api";
+import { getAgentStatus, initAgent, stopAgent, type AgentInitResponse } from "./lib/api";
 
 type LoadState = "idle" | "loading" | "error";
 
@@ -11,16 +11,20 @@ export default function LandingPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
 
   useEffect(() => {
-    // On mount, check if agent is already active by checking feed/backend
+    // On mount, call /api/agent/status to get the real DB status.
+    // Using getFeed() was wrong — it always returns 200 even when paused.
     async function checkStatus() {
       try {
-        const feed = await getFeed();
-        // If feed endpoint responds fine, agent exists or backend is initialized
-        if (feed) {
-          setAgent({ agentId: "active" });
+        const status = await getAgentStatus();
+        if (status.status === "active" && status.agentId) {
+          setAgent({ agentId: status.agentId });
+        } else {
+          // paused, not_initialized, or initializing → show stopped state
+          setAgent(null);
         }
       } catch {
-        // Backend not initialized or down
+        // Backend not reachable
+        setAgent(null);
       }
     }
     checkStatus();
@@ -67,7 +71,7 @@ export default function LandingPage() {
           Persona
         </p>
         <h2 style={{ margin: "0 0 12px" }}>
-          {agent ? "Initialized & Active" : "Paused / Not Initialized"}
+          {agent ? "Initialized & Active" : "Paused / Stopped"}
         </h2>
         <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
           Once initialized, Aether independently discovers AI/tech topics, applies editorial judgment on what deserves publishing, writes in a consistent voice, remembers what it has already covered, and publishes new posts over time — with no further human prompting.

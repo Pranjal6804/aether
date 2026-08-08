@@ -55,3 +55,18 @@ export async function stopAgent(): Promise<{ status: string; message: string }> 
   }
   return res.json();
 }
+
+export type AgentStatusResponse = {
+  status: "active" | "paused" | "not_initialized" | "initializing";
+  agentId: string | null;
+};
+
+export async function getAgentStatus(): Promise<AgentStatusResponse> {
+  const res = await fetch(`${API_URL}/api/agent/status`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Status check failed: ${res.status}`);
+  }
+  return res.json();
+}
