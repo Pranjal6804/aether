@@ -23,6 +23,7 @@ re-surfacing the same items forever. Scope is deliberately narrow:
 """
 import hashlib
 import logging
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -30,6 +31,11 @@ from app.models.sources_cache import SourceCache
 from app.services.topic_discovery import TopicCandidate, discover_topics
 
 logger = logging.getLogger(__name__)
+
+# Cache entries older than this are treated as expired and re-considered.
+# This prevents the agent from permanently running out of candidates after
+# the first cycle consumes all available articles in the RSS feeds.
+CACHE_TTL_HOURS = 24
 
 
 def compute_content_hash(candidate: TopicCandidate) -> str:
@@ -48,22 +54,30 @@ def filter_new_candidates(db: Session, candidates: list[TopicCandidate]) -> list
     """Return only the candidates not already present in sources_cache,
     inserting a SourceCache row for each one kept.
 
-    Candidates are deduplicated against the DB one at a time (not a
-    single bulk query) so that two candidates in the *same* batch that
-    happen to hash identically (e.g. a source listing the same item
-    twice) don't both get inserted — the first occurrence claims the
-    hash, the second is skipped against the now-updated in-session
-    state.
+    Entries older than CACHE_TTL_HOURS are treated as expired and
+    re-considered — this ensures the agent continues finding content even
+    when RSS feeds haven't published entirely new articles since the last cycle.
     """
     new_candidates: list[TopicCandidate] = []
+    expiry_cutoff = datetime.now(timezone.utc) - timedelta(hours=CACHE_TTL_HOURS)
 
     for candidate in candidates:
         content_hash = compute_content_hash(candidate)
-        already_seen = (
+        existing = (
             db.query(SourceCache).filter_by(content_hash=content_hash).first()
         )
-        if already_seen is not None:
-            continue
+
+        if existing is not None:
+            # If the cache entry is still fresh, skip this candidate
+            fetched_at = existing.fetched_at
+            # Make naive datetime timezone-aware for comparison
+            if fetched_at.tzinfo is None:
+                fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+            if fetched_at > expiry_cutoff:
+                continue
+            # Entry is expired — delete it so we re-insert with a fresh timestamp
+            db.delete(existing)
+            db.flush()
 
         db.add(
             SourceCache(
