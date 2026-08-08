@@ -819,3 +819,35 @@ codebase; no new architecture introduced.
 - `README.md`
 
 **Commit:** `fix: lock API to exact evaluator contract, OpenRouter as primary LLM, env cleanup, add PROJECT_STATE.md`
+
+---
+
+## Post-Stage-20 — Runtime Debugging, Railway Observability, and PRD Compliance Fixes
+
+**Prompt:** User request to study backend execution, resolve feed empty issue on Railway, enable stdout logging, fix persona sourcing criteria, add Start/Stop controls to Landing UI, auto-resume background scheduler on app startup, and ensure full compliance with the hackathon rules and API contract.
+
+**AI Response/Summary:** Analyzed backend execution pipeline end-to-end. Configured standard Python logging (`basicConfig`) for Railway observability. Relaxed persona sourcing standards (`persona.json`) to allow Hacker News and ArXiv topics to pass editorial judgment. Fixed `post_writer` parsing to handle markdown bold markers (`**TITLE:**`) cleanly. Implemented `on_startup` auto-resume for the background scheduler in `main.py`. Added `POST /api/agent/stop` endpoint and updated the frontend Landing page UI with Start/Stop agent toggle controls. Added optional `agentId` query parameter filtering to `GET /api/agent/feed` to strictly comply with the PRD evaluator contract (`GET /api/agent/feed?agentId=...`).
+
+**What We Used:** Code analysis, logging setup, regex/string parsing refinements, and FastAPI route/UI enhancements.
+
+**What We Changed:**
+- `backend/app/main.py`: Added stdout `logging.basicConfig(level=logging.INFO)` and `on_startup` auto-resume for active agents.
+- `backend/app/core/persona.json`: Updated sourcing standards to accept Hacker News and ArXiv topics.
+- `backend/app/services/editorial_judgment.py`: Added logging for ACCEPT/REJECT verdicts and markdown-tolerant parsing.
+- `backend/app/services/post_writer.py`: Made `_parse_post_response` tolerant to markdown bolding in section markers.
+- `backend/app/routes/agent.py`: Added `POST /api/agent/stop` endpoint and `agentId` query parameter support in `GET /api/agent/feed`.
+- `frontend/app/lib/api.ts`: Added `stopAgent()` fetch wrapper and fixed status handling.
+- `frontend/app/page.tsx`: Added Start/Stop agent toggle button and client-side status persistence.
+- `docs/AI_USAGE_LOG.md`: Documented all post-Stage-20 updates for Hackathon Stage 1 & 2 verification.
+
+**Files Changed:**
+- `backend/app/main.py`
+- `backend/app/core/persona.json`
+- `backend/app/services/editorial_judgment.py`
+- `backend/app/services/post_writer.py`
+- `backend/app/routes/agent.py`
+- `frontend/app/lib/api.ts`
+- `frontend/app/page.tsx`
+- `docs/AI_USAGE_LOG.md`
+
+**Commit:** `fix: add agentId query param filter to feed API and update AI_USAGE_LOG for hackathon compliance`

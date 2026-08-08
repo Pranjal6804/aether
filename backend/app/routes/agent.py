@@ -66,23 +66,18 @@ def stop_agent(db: Session = Depends(get_db)):
 
 
 @router.get("/feed", response_model=FeedResponse)
-def get_feed(db: Session = Depends(get_db)):
-    """Return every published post, newest first, as `{"posts": [...]}`.
+def get_feed(agentId: str | None = None, db: Session = Depends(get_db)):
+    """Return published posts, newest first, as `{"posts": [...]}`.
 
-    Before `/init` has ever been called there's no agent row yet, so
-    this returns `{"posts": []}` rather than a 404 or an error — a
-    perfectly valid, renderable empty state, and this endpoint stays
-    side-effect-free (it never creates the agent — only `/init` does).
-    Old posts always remain available; nothing here ever deletes or
-    hides a previously-published post.
-
-    `Post.sources` is stored as a JSON-encoded string column;
-    `json.loads()` here turns it back into the `list[str]`
-    `FeedPost.sources` expects, so a malformed/missing value can't
-    crash the whole feed — an unparseable row just falls back to `[]`
-    for that one post's sources.
+    Accepts an optional `agentId` query parameter matching the PRD specification
+    `GET /api/agent/feed?agentId=abc-123`. If provided, filters by that agentId;
+    otherwise returns posts for the latest agent.
     """
-    agent = db.query(Agent).order_by(Agent.created_at.desc()).first()
+    if agentId:
+        agent = db.query(Agent).filter_by(id=agentId).first()
+    else:
+        agent = db.query(Agent).order_by(Agent.created_at.desc()).first()
+
     if agent is None:
         return FeedResponse(posts=[])
 
