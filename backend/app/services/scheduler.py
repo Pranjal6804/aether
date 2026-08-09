@@ -76,7 +76,7 @@ from app.services.editorial_judgment import judge_candidates
 from app.services.memory_service import check_memory_batch
 from app.services.post_writer import PostWriteError, write_post
 from app.services.publisher import publish_post
-from app.services.sources_cache_service import discover_new_topics
+from app.services.sources_cache_service import discover_new_topics, release_rejected_from_cache
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +118,18 @@ def run_publish_cycle(db: Session, agent: Agent) -> int:
         return 0
 
     accepted = [j for j in judgments if j.accepted]
+    rejected = [j.candidate for j in judgments if not j.accepted]
+
+    # Free rejected URLs from the cache so they re-enter the pool next cycle.
+    # Published URLs (accepted below) stay locked for 24h via CACHE_TTL_HOURS.
+    # RejectedTopic fingerprints will fast-reject same-story variants on
+    # re-evaluation with zero LLM calls, so this doesn't cause redundant API spend.
+    if rejected:
+        try:
+            release_rejected_from_cache(db, rejected)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("run_publish_cycle: cache release failed (non-fatal): %s", exc)
+
     if not accepted:
         logger.info(
             "run_publish_cycle: %d candidate(s) discovered, none accepted.",

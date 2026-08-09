@@ -33,9 +33,18 @@ from app.services.topic_discovery import TopicCandidate, discover_topics
 logger = logging.getLogger(__name__)
 
 # Cache entries older than this are treated as expired and re-considered.
-# This prevents the agent from permanently running out of candidates after
-# the first cycle consumes all available articles in the RSS feeds.
-CACHE_TTL_HOURS = 24
+# Keep at 24h so ACCEPTED/published URLs are locked for a full day and
+# are never re-fed into the pipeline. REJECTED URLs are handled
+# differently: `release_rejected_from_cache()` (called by the scheduler
+# after each cycle) immediately deletes their cache rows so they become
+# re-eligible on the very next cycle. This two-tier strategy means:
+#   - Published stories: never re-processed (24h lock).
+#   - Rejected stories: re-eligible next cycle, but `RejectedTopic`
+#     fingerprint fast-rejects them with zero LLM calls — keeping cost
+#     low while keeping the candidate pool from drying up.
+#   - Truly new RSS articles that appeared since the last cycle: always
+#     new to the cache, always fully evaluated.
+CACHE_TTL_HOURS = 24  # Only applies to accepted/published URLs now.
 
 
 def compute_content_hash(candidate: TopicCandidate) -> str:
@@ -94,13 +103,45 @@ def filter_new_candidates(db: Session, candidates: list[TopicCandidate]) -> list
     return new_candidates
 
 
+def release_rejected_from_cache(db: Session, rejected_candidates: list[TopicCandidate]) -> int:
+    """Delete sources_cache rows for candidates that were REJECTED by editorial judgment.
+
+    Rejected URLs should not occupy a cache slot — doing so would starve
+    subsequent cycles of candidates when feeds haven't published new articles
+    yet. By freeing the cache rows immediately after rejection, these URLs
+    become re-eligible on the very next cycle.
+
+    Actual re-publishing is prevented by two independent layers that are NOT
+    cleared here and persist indefinitely:
+      1. `RejectedTopic` fingerprint table — fast-rejects same-story variants
+         with zero LLM calls on re-evaluation.
+      2. Breeth vector memory — prevents publishing content too semantically
+         similar to what is already in the feed.
+
+    Returns the count of cache rows deleted.
+    """
+    deleted = 0
+    for candidate in rejected_candidates:
+        content_hash = compute_content_hash(candidate)
+        existing = db.query(SourceCache).filter_by(content_hash=content_hash).first()
+        if existing is not None:
+            db.delete(existing)
+            deleted += 1
+    db.commit()
+    if deleted:
+        logger.info(
+            "release_rejected_from_cache: freed %d rejected URL(s) back into the candidate pool.",
+            deleted,
+        )
+    return deleted
+
+
 def discover_new_topics(db: Session, sources=None, client=None) -> list[TopicCandidate]:
     """Fetch raw candidates (Stage 11's discover_topics) and return only
     the ones not already cached, caching every new one along the way.
 
-    Not wired into any route or scheduler yet — that's Stage 18, which
-    will call this as the first step in the discovery -> judgment ->
-    memory -> generation -> publish chain.
+    Rejected candidates are freed back into the pool after judgment
+    by `release_rejected_from_cache()` — called by the scheduler.
     """
     candidates = discover_topics(sources=sources, client=client)
     new_candidates = filter_new_candidates(db, candidates)
