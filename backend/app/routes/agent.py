@@ -119,6 +119,7 @@ def get_feed(agentId: str | None = None, db: Session = Depends(get_db)):
             FeedPost(
                 id=post.id,
                 createdAt=post.created_at,
+                title=post.title or "",
                 text=post.content,
                 rationale=post.rationale,
                 sources=sources,

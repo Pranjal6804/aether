@@ -18,6 +18,7 @@ export type AgentInitResponse = {
 export type FeedPost = {
   id: string;
   createdAt: string;
+  title?: string;
   text: string;
   rationale: string;
   sources: string[];

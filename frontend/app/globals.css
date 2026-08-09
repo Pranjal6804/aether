@@ -764,3 +764,154 @@ nav.topnav {
     align-items: flex-start;
   }
 }
+
+/* ─── Batch Separator Divider & Header ─── */
+.batch-divider {
+  position: relative;
+  margin: 36px 0 24px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  scroll-margin-top: 100px;
+}
+
+.batch-divider::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.batch-divider-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-badge {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.batch-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.batch-meta-right {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ─── Feed Layout with Sidebar ─── */
+.feed-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .feed-layout {
+    grid-template-columns: 1fr;
+  }
+  .batch-sidebar-container {
+    position: static !important;
+    margin-bottom: 24px;
+  }
+}
+
+.batch-sidebar-container {
+  position: sticky;
+  top: 90px;
+}
+
+.batch-sidebar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.batch-sidebar-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.batch-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.batch-sidebar-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  color: inherit;
+}
+
+.batch-sidebar-item:hover, .batch-sidebar-item.active {
+  background: var(--accent-glow);
+  border-color: var(--border-accent);
+  transform: translateX(-2px);
+}
+
+.batch-sidebar-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.batch-sidebar-item-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+
