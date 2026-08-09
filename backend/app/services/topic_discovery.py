@@ -209,7 +209,9 @@ def discover_topics(sources: Optional[list[dict]] = None, client: Optional[httpx
     """
     sources = sources if sources is not None else load_topic_sources()
     owns_client = client is None
-    client = client if client is not None else httpx.Client()
+    client = client if client is not None else httpx.Client(
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AetherBot/1.0"}
+    )
 
     all_candidates: list[TopicCandidate] = []
     try:
