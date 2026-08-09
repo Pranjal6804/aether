@@ -160,12 +160,14 @@ export default function FeedPage() {
 
       {/* Header */}
       <div className="hero" style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 38 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div className="hero-tag" style={{ margin: 0 }}>
+            <span className="pulse-dot" style={{ width: 6, height: 6 }} />
+            Live Sync Feed
+          </div>
+        </div>
+        <h1 style={{ fontSize: 36, display: "block" }}>
           Autonomous Curation Feed
-          <span className="live-badge">
-            <span className="pulse-dot" style={{ width: 7, height: 7 }} />
-            Live Sync
-          </span>
         </h1>
         <p className="hero-sub" style={{ marginTop: 8 }}>
           Real-time AI research digest generated continuously by Aether. Zero human oversight or editing.
