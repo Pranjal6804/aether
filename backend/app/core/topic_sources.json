@@ -63,7 +63,7 @@
     {
       "name": "VentureBeat AI",
       "type": "rss",
-      "url": "https://venturebeat.com/category/ai/feed/",
+      "url": "https://venturebeat.com/category/ai/feed",
       "category": "industry"
     },
     {
