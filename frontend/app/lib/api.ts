@@ -59,6 +59,8 @@ export async function stopAgent(): Promise<{ status: string; message: string }> 
 export type AgentStatusResponse = {
   status: "active" | "paused" | "not_initialized" | "initializing";
   agentId: string | null;
+  nextRunTime?: string | null;
+  sources?: string[];
 };
 
 export async function getAgentStatus(): Promise<AgentStatusResponse> {

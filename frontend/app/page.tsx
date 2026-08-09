@@ -38,27 +38,64 @@ export default function LandingPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [totalPostsCount, setTotalPostsCount] = useState<number | null>(null);
+  const [nextRunTime, setNextRunTime] = useState<string | null>(null);
+  const [countdownText, setCountdownText] = useState<string>("");
+  const [sources, setSources] = useState<string[]>([]);
+  const [showSourcesModal, setShowSourcesModal] = useState(false);
 
   useEffect(() => {
     async function checkStatus() {
       try {
         const status = await getAgentStatus();
         setIsReconnecting(false);
+        if (status.sources) setSources(status.sources);
+
         if (status.status === "active" && status.agentId) {
           setAgent({ agentId: status.agentId });
-          // Fetch feed count for dashboard stats
+          setNextRunTime(status.nextRunTime || null);
           const feed = await getFeed();
           setTotalPostsCount(feed.posts.length);
         } else {
           setAgent(null);
+          setNextRunTime(null);
         }
       } catch {
         setIsReconnecting(true);
         setAgent(null);
       }
     }
+
     checkStatus();
+    const statusInterval = setInterval(checkStatus, 15_000);
+    return () => clearInterval(statusInterval);
   }, []);
+
+  // Countdown timer effect for Next Slot reverse time
+  useEffect(() => {
+    if (!nextRunTime) {
+      setCountdownText("");
+      return;
+    }
+
+    function updateCountdown() {
+      const target = new Date(nextRunTime!).getTime();
+      const now = new Date().getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setCountdownText("Executing publish cycle now…");
+        return;
+      }
+
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      setCountdownText(`${mins.toString().padStart(2, "0")}m ${secs.toString().padStart(2, "0")}s`);
+    }
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [nextRunTime]);
 
   async function handleInitialize() {
     setLoadState("loading");
@@ -67,6 +104,10 @@ export default function LandingPage() {
       setAgent(result);
       setLoadState("idle");
       setIsReconnecting(false);
+
+      const status = await getAgentStatus();
+      setNextRunTime(status.nextRunTime || null);
+
       const feed = await getFeed();
       setTotalPostsCount(feed.posts.length);
     } catch {
@@ -79,6 +120,7 @@ export default function LandingPage() {
     try {
       await stopAgent();
       setAgent(null);
+      setNextRunTime(null);
       setLoadState("idle");
     } catch {
       setLoadState("error");
@@ -127,22 +169,50 @@ export default function LandingPage() {
           <div className="stat-desc">Research posts generated</div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Ingestion Network</div>
-          <div className="stat-val" style={{ fontSize: 20 }}>14 Sources</div>
-          <div className="stat-desc">HN Algolia, arXiv, Tech RSS</div>
+        <div
+          className="stat-card"
+          onClick={() => setShowSourcesModal(true)}
+          style={{ cursor: "pointer", border: "1px solid var(--border-accent)" }}
+          title="Click to view all 14 sources"
+        >
+          <div className="stat-label" style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Ingestion Network</span>
+            <span style={{ color: "var(--accent)" }}>🔍 View</span>
+          </div>
+          <div className="stat-val" style={{ fontSize: 20 }}>{sources.length || 14} Sources</div>
+          <div className="stat-desc">HN Algolia, arXiv, Tech RSS, Reddit</div>
         </div>
       </div>
 
-      {/* Control card */}
+      {/* Control Card with Countdown */}
       <div className="control-card">
-        <div className="control-card-info">
+        <div className="control-card-info" style={{ flex: 1 }}>
           <h3>Agent Operational State</h3>
           <p>
             {isActive
-              ? "Autonomous background scheduler is active and periodically polling candidate feeds."
+              ? "Autonomous background scheduler is active and running fast 5-post batch cycles."
               : "Agent is currently paused. Initialize to start auto-discovering and publishing."}
           </p>
+
+          {/* Reverse Countdown Indicator */}
+          {isActive && countdownText && (
+            <div style={{
+              marginTop: 14,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: "var(--accent-glow)",
+              border: "1px solid var(--border-accent)",
+              padding: "6px 14px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--accent)"
+            }}>
+              <span>⏱ Next Autonomous Cycle Slot In:</span>
+              <span style={{ fontFamily: "monospace", fontSize: 14 }}>{countdownText}</span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -187,9 +257,90 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* Sources Pop-out Modal */}
+      {showSourcesModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(5, 7, 12, 0.85)",
+          backdropFilter: "blur(8px)",
+          zIndex: 100,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+        }}>
+          <div style={{
+            background: "var(--panel-solid)",
+            border: "1px solid var(--border-accent)",
+            borderRadius: 20,
+            padding: 28,
+            maxWidth: 520,
+            width: "100%",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-heading)" }}>
+                📡 Active Ingestion Sources ({sources.length})
+              </h3>
+              <button
+                onClick={() => setShowSourcesModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--muted)",
+                  fontSize: 20,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              Aether polls these 14 configured raw candidate channels on every autonomous cycle:
+            </p>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              maxHeight: 320,
+              overflowY: "auto",
+              paddingRight: 6,
+            }}>
+              {sources.map((src, i) => (
+                <div key={src} style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}>
+                  <span style={{ color: "var(--accent)", fontSize: 11 }}>#{i + 1}</span>
+                  <span>{src}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 20, textAlign: "right" }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowSourcesModal(false)}
+                style={{ padding: "8px 18px", fontSize: 13 }}
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loadState === "error" && (
         <div className="error-banner">
-          ⚠ Couldn't connect to Aether backend. Please verify your backend server status.
+          ⚠ Couldn&apos;t connect to Aether backend. Please verify your backend server status.
         </div>
       )}
 

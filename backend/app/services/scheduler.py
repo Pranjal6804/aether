@@ -111,8 +111,8 @@ def run_publish_cycle(db: Session, agent: Agent) -> int:
         return 0
 
     try:
-        # Cap judgment at 3 accepted candidates per cycle for fast response & steady batching
-        judgments = judge_candidates(db, agent.id, candidates, max_accepts=3)
+        # Cap judgment at 5 accepted candidates per cycle for fast response & steady batching
+        judgments = judge_candidates(db, agent.id, candidates, max_accepts=5)
     except Exception as exc:  # noqa: BLE001
         logger.error("run_publish_cycle: editorial judgment failed, skipping this cycle: %s", exc)
         return 0
@@ -237,3 +237,13 @@ def stop_scheduler() -> None:
 def is_running() -> bool:
     """Whether a scheduler is currently active in this process."""
     return _scheduler is not None
+
+
+def get_next_run_time() -> str | None:
+    """Return the ISO timestamp of the next scheduled publish cycle, if scheduler is running."""
+    if _scheduler is None:
+        return None
+    job = _scheduler.get_job(JOB_ID)
+    if job and job.next_run_time:
+        return job.next_run_time.isoformat()
+    return None

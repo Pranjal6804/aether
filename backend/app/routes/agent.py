@@ -67,13 +67,23 @@ def stop_agent(db: Session = Depends(get_db)):
 
 @router.get("/status")
 def get_status(db: Session = Depends(get_db)):
-    """Return the current agent status (active/paused/not_initialized).
-    Used by the frontend to correctly reflect state across page navigation.
+    """Return the current agent status (active/paused/not_initialized) and nextRunTime.
+    Used by the frontend to display status and countdown to next cycle.
     """
+    from app.services.scheduler import get_next_run_time
+    from app.services.topic_discovery import load_topic_sources
+
     agent = db.query(Agent).order_by(Agent.created_at.desc()).first()
+    sources = [s["name"] for s in load_topic_sources()]
+
     if agent is None:
-        return {"status": "not_initialized", "agentId": None}
-    return {"status": agent.status, "agentId": agent.id}
+        return {"status": "not_initialized", "agentId": None, "nextRunTime": None, "sources": sources}
+    return {
+        "status": agent.status,
+        "agentId": agent.id,
+        "nextRunTime": get_next_run_time() if agent.status == "active" else None,
+        "sources": sources,
+    }
 
 
 @router.get("/feed", response_model=FeedResponse)
