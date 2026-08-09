@@ -170,17 +170,34 @@ export default function LandingPage() {
         </div>
 
         <div
-          className="stat-card"
+          className="stat-card stat-card-interactive"
           onClick={() => setShowSourcesModal(true)}
-          style={{ cursor: "pointer", border: "1px solid var(--border-accent)" }}
-          title="Click to view all 14 sources"
+          style={{
+            cursor: "pointer",
+            border: "1px solid var(--border-accent)",
+            background: "var(--accent-glow)",
+            transition: "all 0.25s ease",
+          }}
+          title="Click to view all configured sources"
         >
-          <div className="stat-label" style={{ display: "flex", justifyContent: "space-between" }}>
+          <div className="stat-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>Ingestion Network</span>
-            <span style={{ color: "var(--accent)" }}>🔍 View</span>
+            <span style={{
+              background: "var(--accent)",
+              color: "#042f1a",
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.06em"
+            }}>
+              CLICK TO VIEW
+            </span>
           </div>
-          <div className="stat-val" style={{ fontSize: 20 }}>{sources.length || 14} Sources</div>
-          <div className="stat-desc">HN Algolia, arXiv, Tech RSS, Reddit</div>
+          <div className="stat-val" style={{ fontSize: 22, color: "var(--accent)" }}>
+            {sources.length || 14} Sources ↗
+          </div>
+          <div className="stat-desc">HN Algolia, arXiv, Tech RSS, Reddit (Click for details)</div>
         </div>
       </div>
 
