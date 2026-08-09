@@ -76,7 +76,11 @@ from app.services.editorial_judgment import judge_candidates
 from app.services.memory_service import check_memory_batch
 from app.services.post_writer import PostWriteError, write_post
 from app.services.publisher import publish_post
-from app.services.sources_cache_service import discover_new_topics, release_rejected_from_cache
+from app.services.sources_cache_service import (
+    discover_new_topics,
+    release_rejected_from_cache,
+    release_unaccepted_from_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,15 +122,17 @@ def run_publish_cycle(db: Session, agent: Agent) -> int:
         return 0
 
     accepted = [j for j in judgments if j.accepted]
-    rejected = [j.candidate for j in judgments if not j.accepted]
+    accepted_urls = {j.candidate.url for j in accepted}
+    unaccepted = [c for c in candidates if c.url not in accepted_urls]
 
-    # Free rejected URLs from the cache so they re-enter the pool next cycle.
+    # Free all unaccepted URLs (both explicitly rejected AND unevaluated candidates
+    # skipped due to max_accepts) from sources_cache so they re-enter the pool next cycle.
     # Published URLs (accepted below) stay locked for 24h via CACHE_TTL_HOURS.
     # RejectedTopic fingerprints will fast-reject same-story variants on
     # re-evaluation with zero LLM calls, so this doesn't cause redundant API spend.
-    if rejected:
+    if unaccepted:
         try:
-            release_rejected_from_cache(db, rejected)
+            release_unaccepted_from_cache(db, unaccepted)
         except Exception as exc:  # noqa: BLE001
             logger.warning("run_publish_cycle: cache release failed (non-fatal): %s", exc)
 

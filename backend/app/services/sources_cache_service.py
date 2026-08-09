@@ -103,25 +103,19 @@ def filter_new_candidates(db: Session, candidates: list[TopicCandidate]) -> list
     return new_candidates
 
 
-def release_rejected_from_cache(db: Session, rejected_candidates: list[TopicCandidate]) -> int:
-    """Delete sources_cache rows for candidates that were REJECTED by editorial judgment.
+def release_unaccepted_from_cache(db: Session, unaccepted_candidates: list[TopicCandidate]) -> int:
+    """Delete sources_cache rows for candidates that were NOT accepted (rejected or skipped due to max_accepts).
 
-    Rejected URLs should not occupy a cache slot — doing so would starve
-    subsequent cycles of candidates when feeds haven't published new articles
-    yet. By freeing the cache rows immediately after rejection, these URLs
-    become re-eligible on the very next cycle.
-
-    Actual re-publishing is prevented by two independent layers that are NOT
-    cleared here and persist indefinitely:
-      1. `RejectedTopic` fingerprint table — fast-rejects same-story variants
-         with zero LLM calls on re-evaluation.
-      2. Breeth vector memory — prevents publishing content too semantically
-         similar to what is already in the feed.
+    Only ACCEPTED (published) candidates remain locked in sources_cache for 24h.
+    Releasing unaccepted candidates ensures:
+      1. Explicitly rejected candidates are fast-rejected by fingerprint on future runs.
+      2. Unevaluated candidates (skipped when max_accepts was reached) remain in the candidate
+         pool for subsequent scheduler cycles so the agent keeps finding new topics.
 
     Returns the count of cache rows deleted.
     """
     deleted = 0
-    for candidate in rejected_candidates:
+    for candidate in unaccepted_candidates:
         content_hash = compute_content_hash(candidate)
         existing = db.query(SourceCache).filter_by(content_hash=content_hash).first()
         if existing is not None:
@@ -130,18 +124,23 @@ def release_rejected_from_cache(db: Session, rejected_candidates: list[TopicCand
     db.commit()
     if deleted:
         logger.info(
-            "release_rejected_from_cache: freed %d rejected URL(s) back into the candidate pool.",
+            "release_unaccepted_from_cache: freed %d unaccepted URL(s) back into the candidate pool.",
             deleted,
         )
     return deleted
+
+
+def release_rejected_from_cache(db: Session, rejected_candidates: list[TopicCandidate]) -> int:
+    """Backwards-compatible alias for `release_unaccepted_from_cache`."""
+    return release_unaccepted_from_cache(db, rejected_candidates)
 
 
 def discover_new_topics(db: Session, sources=None, client=None) -> list[TopicCandidate]:
     """Fetch raw candidates (Stage 11's discover_topics) and return only
     the ones not already cached, caching every new one along the way.
 
-    Rejected candidates are freed back into the pool after judgment
-    by `release_rejected_from_cache()` — called by the scheduler.
+    Unaccepted candidates are freed back into the pool after judgment
+    by `release_unaccepted_from_cache()` — called by the scheduler.
     """
     candidates = discover_topics(sources=sources, client=client)
     new_candidates = filter_new_candidates(db, candidates)
